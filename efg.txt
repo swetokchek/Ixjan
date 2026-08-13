@@ -1,0 +1,1185 @@
+--==============================================================
+--                 AUXILIARY • ULTIMATE UI
+--                     PREMIUM EDITION
+--==============================================================
+
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+--==============================================================
+-- CONFIG
+--==============================================================
+
+local CONFIG = {
+
+	Keycard = {
+		enabled = true,
+		color = Color3.fromRGB(255, 215, 70),
+		label = "KEYCARD"
+	},
+
+	Door = {
+		enabled = true,
+		color = Color3.fromRGB(60, 205, 255),
+		label = "DOOR"
+	},
+
+	Lever = {
+		enabled = true,
+		color = Color3.fromRGB(255, 120, 45),
+		label = "LEVER"
+	},
+
+	Amethyst = {
+		enabled = true,
+		color = Color3.fromRGB(190, 85, 255),
+		label = "AMETHYST"
+	}
+}
+
+--==============================================================
+-- STATES
+--==============================================================
+
+local fullbrightEnabled = false
+local purpleFXEnabled = false
+local thirdPersonEnabled = false
+local glassBodyEnabled = false
+local monsterNotificationsEnabled = true
+
+local menuCollapsed = false
+local menuDestroyed = false
+
+--==============================================================
+-- NOTIFICATION CONFIG
+--==============================================================
+
+local NOTIFICATION_SOUND_ID = "rbxassetid://6026984224"
+
+local MONSTER_FOLDER_NAMES = {
+	"Entities",
+	"Monsters",
+	"Monster",
+	"Enemies",
+	"EntitiesFolder"
+}
+
+--==============================================================
+-- ORIGINAL LIGHTING
+--==============================================================
+
+local originalLighting = {
+	Brightness = Lighting.Brightness,
+	ClockTime = Lighting.ClockTime,
+	GlobalShadows = Lighting.GlobalShadows,
+	Ambient = Lighting.Ambient,
+	OutdoorAmbient = Lighting.OutdoorAmbient,
+	FogEnd = Lighting.FogEnd,
+	FogStart = Lighting.FogStart
+}
+
+--==============================================================
+-- HELPERS
+--==============================================================
+
+local function tween(object, duration, properties, style)
+	local info = TweenInfo.new(
+		duration or 0.2,
+		style or Enum.EasingStyle.Quad,
+		Enum.EasingDirection.Out
+	)
+
+	return TweenService:Create(object, info, properties)
+end
+
+local function addCorner(object, radius)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, radius)
+	c.Parent = object
+	return c
+end
+
+local function addStroke(object, color, thickness, transparency)
+	local s = Instance.new("UIStroke")
+	s.Color = color
+	s.Thickness = thickness or 1
+	s.Transparency = transparency or 0
+	s.Parent = object
+	return s
+end
+
+local function addGradient(object, c1, c2, rotation)
+	local g = Instance.new("UIGradient")
+
+	g.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, c1),
+		ColorSequenceKeypoint.new(1, c2)
+	})
+
+	g.Rotation = rotation or 0
+	g.Parent = object
+
+	return g
+end
+
+--==============================================================
+-- REMOVE OLD GUI
+--==============================================================
+
+local oldGui = playerGui:FindFirstChild("AuxiliaryUltimate")
+
+if oldGui then
+	oldGui:Destroy()
+end
+
+--==============================================================
+-- FULLBRIGHT
+--==============================================================
+
+local function setFullbright(enabled)
+
+	fullbrightEnabled = enabled
+
+	if enabled then
+
+		Lighting.Brightness = 2
+		Lighting.ClockTime = 14
+		Lighting.GlobalShadows = false
+		Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+		Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+		Lighting.FogEnd = 100000
+		Lighting.FogStart = 0
+
+	else
+
+		Lighting.Brightness = originalLighting.Brightness
+		Lighting.ClockTime = originalLighting.ClockTime
+		Lighting.GlobalShadows = originalLighting.GlobalShadows
+		Lighting.Ambient = originalLighting.Ambient
+		Lighting.OutdoorAmbient = originalLighting.OutdoorAmbient
+		Lighting.FogEnd = originalLighting.FogEnd
+		Lighting.FogStart = originalLighting.FogStart
+
+	end
+end
+
+--==============================================================
+-- PURPLE FX
+--==============================================================
+
+local purpleColor
+local purpleBloom
+
+local function createPurpleFX()
+
+	if purpleColor and purpleColor.Parent then
+		return
+	end
+
+	for _, obj in ipairs(Lighting:GetChildren()) do
+
+		if obj.Name == "AuxiliaryPurpleFX"
+			or obj.Name == "AuxiliaryPurpleBloom" then
+
+			obj:Destroy()
+
+		end
+	end
+
+	purpleColor = Instance.new("ColorCorrectionEffect")
+	purpleColor.Name = "AuxiliaryPurpleFX"
+
+	purpleColor.Brightness = 0.02
+	purpleColor.Contrast = 0.12
+	purpleColor.Saturation = 0.08
+
+	purpleColor.TintColor =
+		Color3.fromRGB(220, 190, 255)
+
+	purpleColor.Enabled = false
+	purpleColor.Parent = Lighting
+
+	purpleBloom = Instance.new("BloomEffect")
+	purpleBloom.Name = "AuxiliaryPurpleBloom"
+
+	purpleBloom.Intensity = 0.35
+	purpleBloom.Size = 24
+	purpleBloom.Threshold = 0.8
+
+	purpleBloom.Enabled = false
+	purpleBloom.Parent = Lighting
+end
+
+local function setPurpleFX(enabled)
+
+	purpleFXEnabled = enabled
+
+	createPurpleFX()
+
+	purpleColor.Enabled = enabled
+	purpleBloom.Enabled = enabled
+end
+
+createPurpleFX()
+
+--==============================================================
+-- THIRD PERSON
+--==============================================================
+
+local function applyCamera()
+
+	if thirdPersonEnabled then
+
+		player.CameraMode = Enum.CameraMode.Classic
+
+		player.CameraMinZoomDistance = 6
+		player.CameraMaxZoomDistance = 12
+
+	else
+
+		player.CameraMode =
+			Enum.CameraMode.LockFirstPerson
+
+		player.CameraMinZoomDistance = 0.5
+		player.CameraMaxZoomDistance = 0.5
+
+	end
+end
+
+local function setThirdPerson(enabled)
+
+	thirdPersonEnabled = enabled
+	applyCamera()
+
+end
+
+player.CharacterAdded:Connect(function()
+
+	task.wait(0.5)
+
+	applyCamera()
+
+end)
+
+--==============================================================
+-- GLASS BODY
+--==============================================================
+
+local glassOriginals = {}
+local glassParts = {}
+local glassLoop = false
+
+local BODY_PART_NAMES = {
+
+	Head = true,
+
+	UpperTorso = true,
+	LowerTorso = true,
+
+	LeftUpperArm = true,
+	LeftLowerArm = true,
+	LeftHand = true,
+
+	RightUpperArm = true,
+	RightLowerArm = true,
+	RightHand = true,
+
+	LeftUpperLeg = true,
+	LeftLowerLeg = true,
+	LeftFoot = true,
+
+	RightUpperLeg = true,
+	RightLowerLeg = true,
+	RightFoot = true,
+
+	Torso = true,
+	["Left Arm"] = true,
+	["Right Arm"] = true,
+	["Left Leg"] = true,
+	["Right Leg"] = true
+}
+
+local function restoreGlass()
+
+	glassLoop = false
+
+	for part, original in pairs(glassOriginals) do
+
+		if part and part.Parent then
+
+			pcall(function()
+
+				part.Material = original.Material
+				part.Color = original.Color
+				part.Transparency = original.Transparency
+				part.Reflectance = original.Reflectance
+
+			end)
+
+		end
+	end
+
+	table.clear(glassOriginals)
+	table.clear(glassParts)
+end
+
+local function isRealBodyPart(obj)
+
+	if not obj:IsA("BasePart") then
+		return false
+	end
+
+	if obj.Name == "HumanoidRootPart" then
+		return false
+	end
+
+	if not BODY_PART_NAMES[obj.Name] then
+		return false
+	end
+
+	if obj:FindFirstAncestorOfClass("Accessory") then
+		return false
+	end
+
+	if obj:FindFirstAncestorOfClass("Tool") then
+		return false
+	end
+
+	return true
+end
+
+local function enableGlass()
+
+	local character = player.Character
+
+	if not character then
+		return
+	end
+
+	restoreGlass()
+
+	glassBodyEnabled = true
+	glassLoop = true
+
+	for _, obj in ipairs(character:GetDescendants()) do
+
+		if isRealBodyPart(obj) then
+
+			glassOriginals[obj] = {
+				Material = obj.Material,
+				Color = obj.Color,
+				Transparency = obj.Transparency,
+				Reflectance = obj.Reflectance
+			}
+
+			table.insert(glassParts, obj)
+
+			obj.Material = Enum.Material.Glass
+			obj.Transparency = 0.32
+			obj.Reflectance = 0.05
+
+		end
+	end
+
+	task.spawn(function()
+
+		while glassLoop
+			and glassBodyEnabled
+			and player.Character == character do
+
+			local t = os.clock()
+
+			local wave =
+				(math.sin(t * 1.4) + 1) / 2
+
+			local color = Color3.new(
+				0.45 + wave * 0.25,
+				0.10 + wave * 0.13,
+				0.72 + wave * 0.24
+			)
+
+			for _, part in ipairs(glassParts) do
+
+				if part and part.Parent then
+					part.Color = color
+				end
+
+			end
+
+			task.wait(0.05)
+
+		end
+	end)
+end
+
+local function setGlassBody(enabled)
+
+	glassBodyEnabled = enabled
+
+	if enabled then
+		enableGlass()
+	else
+		restoreGlass()
+	end
+
+end
+
+player.CharacterAdded:Connect(function()
+
+	task.wait(1)
+
+	if glassBodyEnabled then
+		enableGlass()
+	end
+
+end)
+
+--==============================================================
+-- ESP FINDERS
+--==============================================================
+
+local function findKeycard(room)
+
+	for _, obj in ipairs(room:GetDescendants()) do
+
+		if obj.Name == "Keycard" then
+			return obj
+		end
+
+	end
+
+	return nil
+end
+
+local function findDoor(room)
+
+	return room:FindFirstChild("Door")
+
+end
+
+local function findLever(room)
+
+	local scriptables =
+		room:FindFirstChild("Scriptables")
+
+	if scriptables then
+		return scriptables:FindFirstChild("MainLever")
+	end
+
+	return nil
+end
+
+local FINDERS = {
+	Keycard = findKeycard,
+	Door = findDoor,
+	Lever = findLever
+}
+
+local AMETHYST_NAMES = {
+	MidAmethyst = true,
+	SmallAmethyst = true,
+	BigAmethyst = true,
+	SingleAmethystShard3 = true
+}
+
+local function findAmethysts(room)
+
+	local result = {}
+
+	for _, obj in ipairs(room:GetDescendants()) do
+
+		if AMETHYST_NAMES[obj.Name] then
+			table.insert(result, obj)
+		end
+
+	end
+
+	return result
+end
+
+--==============================================================
+-- ESP
+--==============================================================
+
+local function applyESP(obj, category)
+
+	if not obj or not obj.Parent then
+		return
+	end
+
+	local settings = CONFIG[category]
+
+	if not settings then
+		return
+	end
+
+	local hName = category .. "Highlight"
+	local bName = category .. "Label"
+
+	local highlight = obj:FindFirstChild(hName)
+
+	if not highlight then
+
+		highlight = Instance.new("Highlight")
+
+		highlight.Name = hName
+
+		highlight.FillColor = settings.color
+		highlight.OutlineColor = settings.color
+
+		highlight.FillTransparency = 0.5
+		highlight.OutlineTransparency = 0
+
+		highlight.DepthMode =
+			Enum.HighlightDepthMode.AlwaysOnTop
+
+		highlight.Parent = obj
+
+	end
+
+	local billboard = obj:FindFirstChild(bName)
+
+	if not billboard then
+
+		billboard = Instance.new("BillboardGui")
+
+		billboard.Name = bName
+
+		billboard.Size =
+			UDim2.fromOffset(120, 32)
+
+		billboard.StudsOffset =
+			Vector3.new(0, 2.2, 0)
+
+		billboard.AlwaysOnTop = true
+		billboard.MaxDistance = 1000
+
+		billboard.Parent = obj
+
+		local text = Instance.new("TextLabel")
+
+		text.Name = "Text"
+
+		text.Size = UDim2.fromScale(1, 1)
+
+		text.BackgroundTransparency = 1
+
+		text.Text = settings.label
+
+		text.TextColor3 = settings.color
+
+		text.TextStrokeTransparency = 0
+		text.TextStrokeColor3 = Color3.new(0, 0, 0)
+
+		text.Font = Enum.Font.GothamBold
+		text.TextScaled = true
+
+		text.Parent = billboard
+
+	end
+end
+
+local function removeESP(obj, category)
+
+	if not obj then
+		return
+	end
+
+	local h =
+		obj:FindFirstChild(category .. "Highlight")
+
+	local l =
+		obj:FindFirstChild(category .. "Label")
+
+	if h then
+		h:Destroy()
+	end
+
+	if l then
+		l:Destroy()
+	end
+end
+
+local function processRoom(room)
+
+	if not room then
+		return
+	end
+
+	for category, finder in pairs(FINDERS) do
+
+		local obj = finder(room)
+
+		if obj then
+
+			if CONFIG[category].enabled then
+				applyESP(obj, category)
+			else
+				removeESP(obj, category)
+			end
+
+		end
+	end
+
+	for _, obj in ipairs(findAmethysts(room)) do
+
+		if CONFIG.Amethyst.enabled then
+			applyESP(obj, "Amethyst")
+		else
+			removeESP(obj, "Amethyst")
+		end
+
+	end
+end
+
+local function scanRooms()
+
+	local folder =
+		workspace:FindFirstChild("CurrentRooms")
+
+	if not folder then
+		return
+	end
+
+	for _, room in ipairs(folder:GetChildren()) do
+
+		pcall(function()
+			processRoom(room)
+		end)
+
+	end
+end
+
+task.spawn(function()
+
+	while task.wait(1) do
+
+		pcall(scanRooms)
+
+	end
+
+end)
+
+task.spawn(function()
+
+	local folder =
+		workspace:WaitForChild("CurrentRooms", 15)
+
+	if folder then
+
+		folder.ChildAdded:Connect(function(room)
+
+			task.wait(0.35)
+
+			pcall(function()
+				processRoom(room)
+			end)
+
+		end)
+
+	end
+end)
+
+--==============================================================
+-- NOTIFICATIONS
+--==============================================================
+
+local notificationHolder =
+	Instance.new("Frame")
+
+notificationHolder.Name = "Notifications"
+
+notificationHolder.AnchorPoint =
+	Vector2.new(1, 0)
+
+notificationHolder.Position =
+	UDim2.new(1, -15, 0, 15)
+
+notificationHolder.Size =
+	UDim2.fromOffset(300, 0)
+
+notificationHolder.AutomaticSize =
+	Enum.AutomaticSize.Y
+
+notificationHolder.BackgroundTransparency = 1
+
+notificationHolder.ZIndex = 500
+
+notificationHolder.Parent = playerGui
+
+local notificationLayout =
+	Instance.new("UIListLayout")
+
+notificationLayout.SortOrder =
+	Enum.SortOrder.LayoutOrder
+
+notificationLayout.Padding =
+	UDim.new(0, 7)
+
+notificationLayout.HorizontalAlignment =
+	Enum.HorizontalAlignment.Right
+
+notificationLayout.Parent =
+	notificationHolder
+
+local notificationSound =
+	Instance.new("Sound")
+
+notificationSound.Name =
+	"MonsterNotificationSound"
+
+notificationSound.SoundId =
+	NOTIFICATION_SOUND_ID
+
+notificationSound.Volume = 0.65
+
+notificationSound.Parent =
+	notificationHolder
+
+local notificationCounter = 0
+
+local function showNotification(monsterName)
+
+	if not monsterNotificationsEnabled then
+		return
+	end
+
+	notificationCounter += 1
+
+	local card = Instance.new("Frame")
+
+	card.Name = "MonsterNotification"
+
+	card.Size =
+		UDim2.fromOffset(285, 66)
+
+	card.BackgroundColor3 =
+		Color3.fromRGB(16, 14, 27)
+
+	card.BorderSizePixel = 0
+
+	card.LayoutOrder =
+		notificationCounter
+
+	card.ZIndex = 501
+
+	card.Parent = notificationHolder
+
+	addCorner(card, 13)
+
+	addStroke(
+		card,
+		Color3.fromRGB(165, 75, 255),
+		1.2,
+		0.3
+	)
+
+	local accent = Instance.new("Frame")
+
+	accent.Size =
+		UDim2.fromOffset(4, 44)
+
+	accent.Position =
+		UDim2.new(0, 8, 0.5, -22)
+
+	accent.BackgroundColor3 =
+		Color3.fromRGB(180, 80, 255)
+
+	accent.BorderSizePixel = 0
+
+	accent.ZIndex = 502
+
+	accent.Parent = card
+
+	addCorner(accent, 5)
+
+	local icon = Instance.new("TextLabel")
+
+	icon.Size =
+		UDim2.fromOffset(36, 36)
+
+	icon.Position =
+		UDim2.new(0, 19, 0.5, -18)
+
+	icon.BackgroundColor3 =
+		Color3.fromRGB(52, 28, 75)
+
+	icon.BorderSizePixel = 0
+
+	icon.Text = "!"
+
+	icon.TextColor3 =
+		Color3.fromRGB(220, 170, 255)
+
+	icon.Font =
+		Enum.Font.GothamBold
+
+	icon.TextSize = 20
+
+	icon.ZIndex = 503
+
+	icon.Parent = card
+
+	addCorner(icon, 10)
+
+	local title = Instance.new("TextLabel")
+
+	title.BackgroundTransparency = 1
+
+	title.Size =
+		UDim2.new(1, -75, 0, 18)
+
+	title.Position =
+		UDim2.new(0, 65, 0, 10)
+
+	title.Text =
+		"ENTITY DETECTED"
+
+	title.TextColor3 =
+		Color3.fromRGB(175, 120, 255)
+
+	title.Font =
+		Enum.Font.GothamBold
+
+	title.TextSize = 9
+
+	title.TextXAlignment =
+		Enum.TextXAlignment.Left
+
+	title.ZIndex = 503
+
+	title.Parent = card
+
+	local name = Instance.new("TextLabel")
+
+	name.BackgroundTransparency = 1
+
+	name.Size =
+		UDim2.new(1, -75, 0, 25)
+
+	name.Position =
+		UDim2.new(0, 65, 0, 28)
+
+	name.Text =
+		monsterName
+
+	name.TextColor3 =
+		Color3.fromRGB(245, 242, 255)
+
+	name.Font =
+		Enum.Font.GothamMedium
+
+	name.TextSize = 14
+
+	name.TextXAlignment =
+		Enum.TextXAlignment.Left
+
+	name.TextTruncate =
+		Enum.TextTruncate.AtEnd
+
+	name.ZIndex = 503
+
+	name.Parent = card
+
+	card.Position =
+		UDim2.new(1, 25, 0, 0)
+
+	card.BackgroundTransparency = 1
+
+	tween(
+		card,
+		0.25,
+		{
+			Position =
+				UDim2.new(0, 0, 0, 0),
+
+			BackgroundTransparency = 0
+		}
+	):Play()
+
+	pcall(function()
+
+		notificationSound:Stop()
+		notificationSound.TimePosition = 0
+		notificationSound:Play()
+
+	end)
+
+	task.delay(4, function()
+
+		if not card or not card.Parent then
+			return
+		end
+
+		local out =
+			tween(
+				card,
+				0.25,
+				{
+					Position =
+						UDim2.new(1, 25, 0, 0),
+
+					BackgroundTransparency = 1
+				}
+			)
+
+		out:Play()
+
+		out.Completed:Wait()
+
+		if card then
+			card:Destroy()
+		end
+
+	end)
+end
+
+--==============================================================
+-- MONSTER FINDER
+--==============================================================
+
+local function findMonsterFolder()
+
+	for _, name in ipairs(MONSTER_FOLDER_NAMES) do
+
+		local folder =
+			workspace:FindFirstChild(name)
+
+		if folder then
+			return folder
+		end
+
+	end
+
+	for _, obj in ipairs(workspace:GetDescendants()) do
+
+		if obj:IsA("Folder")
+			or obj:IsA("Model") then
+
+			local lower =
+				string.lower(obj.Name)
+
+			if lower == "monsters"
+				or lower == "entities"
+				or lower == "monster" then
+
+				return obj
+			end
+		end
+	end
+
+	return nil
+end
+
+local monitoredFolders = {}
+
+local function monitorMonsterFolder(folder)
+
+	if not folder then
+		return
+	end
+
+	if monitoredFolders[folder] then
+		return
+	end
+
+	monitoredFolders[folder] = true
+
+	folder.ChildAdded:Connect(function(obj)
+
+		if not monsterNotificationsEnabled then
+			return
+		end
+
+		task.wait(0.05)
+
+		if obj and obj.Parent == folder then
+
+			showNotification(obj.Name)
+
+		end
+	end)
+end
+
+task.spawn(function()
+
+	while task.wait(1) do
+
+		local folder =
+			findMonsterFolder()
+
+		if folder then
+			monitorMonsterFolder(folder)
+		end
+
+	end
+end)
+
+--==============================================================
+-- SCREEN GUI
+--==============================================================
+
+local gui =
+	Instance.new("ScreenGui")
+
+gui.Name =
+	"AuxiliaryUltimate"
+
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.DisplayOrder = 999
+
+gui.ZIndexBehavior =
+	Enum.ZIndexBehavior.Sibling
+
+gui.Parent = playerGui
+
+--==============================================================
+-- MAIN WINDOW
+--==============================================================
+
+local main =
+	Instance.new("Frame")
+
+main.Name = "Main"
+
+main.AnchorPoint =
+	Vector2.new(0, 0)
+
+main.Position =
+	UDim2.fromOffset(18, 120)
+
+main.Size =
+	UDim2.fromOffset(350, 500)
+
+main.BackgroundColor3 =
+	Color3.fromRGB(9, 10, 18)
+
+main.BorderSizePixel = 0
+
+main.ClipsDescendants = true
+
+main.ZIndex = 50
+
+main.Parent = gui
+
+addCorner(main, 20)
+
+addStroke(
+	main,
+	Color3.fromRGB(135, 75, 255),
+	1.5,
+	0.25
+)
+
+--==============================================================
+-- HEADER
+--==============================================================
+
+local header =
+	Instance.new("Frame")
+
+header.Size =
+	UDim2.new(1, 0, 0, 82)
+
+header.BackgroundColor3 =
+	Color3.fromRGB(32, 20, 58)
+
+header.BorderSizePixel = 0
+
+header.ZIndex = 51
+
+header.Parent = main
+
+addCorner(header, 20)
+
+addGradient(
+	header,
+	Color3.fromRGB(85, 40, 170),
+	Color3.fromRGB(18, 66, 105),
+	25
+)
+
+--==============================================================
+-- HEADER LOGO
+--==============================================================
+
+local logo =
+	Instance.new("Frame")
+
+logo.Size =
+	UDim2.fromOffset(48, 48)
+
+logo.Position =
+	UDim2.fromOffset(14, 14)
+
+logo.BackgroundColor3 =
+	Color3.fromRGB(115, 45, 235)
+
+logo.BorderSizePixel = 0
+
+logo.ZIndex = 53
+
+logo.Parent = header
+
+addCorner(logo, 15)
+
+addGradient(
+	logo,
+	Color3.fromRGB(130, 55, 255),
+	Color3.fromRGB(55, 75, 210),
+	45
+)
+
+local logoText =
+	Instance.new("TextLabel")
+
+logoText.Size =
+	UDim2.fromScale(1, 1)
+
+logoText.BackgroundTransparency = 1
+
+logoText.Text = "A"
+
+logoText.TextColor3 =
+	Color3.fromRGB(255, 255, 255)
+
+logoText.Font =
+	Enum.Font.GothamBlack
+
+logoText.TextSize = 27
+
+logoText.ZIndex = 54
+
+logoText.Parent = logo
+
+--==============================================================
+-- TITLE
+--==============================================================
+
+local title =
+	Instance.new("TextLabel")
+
+title.BackgroundTransparency = 1
+
+title.Position =
+	UDim2.fromOffset(73, 15)
+
+title.Size =
+	UDim2.new(1, -150, 0, 25)
+
+title.Text =
+	"AUXILIARY"
+
+title.TextColor3 =
+	Color3.fromRGB(255, 255, 255)
+
+title.Font =
+	Enum.Font.GothamBlack
+
